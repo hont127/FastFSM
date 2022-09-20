@@ -137,7 +137,7 @@ public class FastFsm
 
     public bool HasTransition(int stateIndex, int dstStateIndex)
     {
-        return TransitionToIndex(stateIndex, dstStateIndex) != -1;
+        return GetTransitionIndex(stateIndex, dstStateIndex) != -1;
     }
 
     public int StateIdentifierToIndex(int stateIdentifier)
@@ -175,7 +175,7 @@ public class FastFsm
         return mIsPrepared ? mStates[stateIndex].identifier : mConfStateList[stateIndex].identifier;
     }
 
-    public int TransitionToIndex(int stateIndex, int dstStateIndex)
+    public int GetTransitionIndex(int stateIndex, int dstStateIndex)
     {
         StateInfo state = mIsPrepared ? mStates[stateIndex] : mConfStateList[stateIndex];
 
@@ -292,7 +292,7 @@ public class FastFsm
         if (mIsPrepared)
             throw new System.NotSupportedException("Does not support in prepared edit fsm!");
 
-        int transitionIndex = TransitionToIndex(stateIndex, dstStateIndex);
+        int transitionIndex = GetTransitionIndex(stateIndex, dstStateIndex);
         if (transitionIndex > -1)
             throw new Exception("Has same state transition!");
 
@@ -381,7 +381,7 @@ public class FastFsm
             if (transitionCacheIndex > -1)
                 transitionIndex = transitionCacheIndex;
             else
-                transitionIndex = TransitionToIndex(CurrentStateIndex, transitionDstStateIndex);
+                transitionIndex = GetTransitionIndex(CurrentStateIndex, transitionDstStateIndex);
 
             if (CanTransition(transitionIndex, transitionArg))
             {

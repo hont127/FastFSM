@@ -12,7 +12,7 @@ public class FastFsmTransitionSetter
     public void Initialize(FastFsm fsm, int stateIndex, int dstStateIndex)
     {
         mFsm = fsm;
-        mTransitionIndex = mFsm.TransitionToIndex(stateIndex, dstStateIndex);
+        mTransitionIndex = mFsm.GetTransitionIndex(stateIndex, dstStateIndex);
     }
 
     public FastFsmTransitionSetter SetTransition(FastFsm.StateTransition condition)
