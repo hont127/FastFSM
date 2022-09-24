@@ -2,11 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+/// <summary>
+/// 基于C# Dictionary源码思路的快速状态机实现
+/// </summary>
 public class FastFsm
 {
-    public const float kTimerInvalid = -100f;
-    public const float kFloatEps = 0.000001f;
-
     public delegate void StateEnter(int lastState, object arg);
     public delegate void StateUpdate();
     public delegate void StateExit(int newState);
@@ -32,6 +32,7 @@ public class FastFsm
         public int next;
         public int dstStateIndex;
         public StateTransition condition;
+        public bool isAutoDetect;
 
         public bool Valid => condition != null;
     }
@@ -48,8 +49,14 @@ public class FastFsm
     private StateInfo[] mStates;
     private TransitionInfo[] mTransitions;
 
+    /// <summary>
+    /// 是否为直接传递,若为true将忽略传递条件
+    /// </summary>
     public bool AllowDirectTransition { get; set; }
 
+    /// <summary>
+    /// 当前状态索引值
+    /// </summary>
     public int CurrentStateIndex { get; private set; }
 
     public FastFsmStateSetter this[int stateIdentifier]
@@ -75,8 +82,16 @@ public class FastFsm
             if (mIsPrepared)
                 throw new Exception("Does not support in prepared edit fsm!");
 
+            if (!HasState(stateIdentifier))
+                AddState(stateIdentifier);
+
+            if (!HasState(dstStateIdentifier))
+                AddState(dstStateIdentifier);
+
             int stateIndex = StateIdentifierToIndex(stateIdentifier);
             int dstStateIndex = StateIdentifierToIndex(dstStateIdentifier);
+
+            UnityEngine.Debug.Log("dstStateIdentifier: " + dstStateIdentifier + " dstStateIndex: " + dstStateIndex);
 
             if (!HasTransition(stateIndex, dstStateIndex))
                 AddTransition(stateIndex, dstStateIndex, null);
@@ -98,6 +113,9 @@ public class FastFsm
         mNestedTransitionQueue = new Queue<FastFsmTransitionOperate>(4);
     }
 
+    /// <summary>
+    /// 准备操作
+    /// </summary>
     public void Prepare()
     {
         mStates = mConfStateList.ToArray();
@@ -105,6 +123,19 @@ public class FastFsm
         mIsPrepared = true;
     }
 
+    /// <summary>
+    /// 开始状态机
+    /// </summary>
+    /// <param name="startStateIndex">开始状态索引</param>
+    public void Start(int startStateIndex)
+    {
+        StartByIndex(StateIdentifierToIndex(startStateIndex));
+    }
+
+    /// <summary>
+    /// 是否存在某个状态
+    /// </summary>
+    /// <param name="stateIdentifier">状态id</param>
     public bool HasState(int stateIdentifier)
     {
         bool result = false;
@@ -135,11 +166,19 @@ public class FastFsm
         return result;
     }
 
+    /// <summary>
+    /// 是否存在某个传递
+    /// </summary>
+    /// <param name="stateIndex">传递初始状态索引</param>
+    /// <param name="dstStateIndex">传递目标状态索引</param>
     public bool HasTransition(int stateIndex, int dstStateIndex)
     {
-        return TransitionToIndex(stateIndex, dstStateIndex) != -1;
+        return GetTransitionIndex(stateIndex, dstStateIndex) != -1;
     }
 
+    /// <summary>
+    /// 状态id转换为索引
+    /// </summary>
     public int StateIdentifierToIndex(int stateIdentifier)
     {
         int result = -1;
@@ -170,31 +209,34 @@ public class FastFsm
         return result;
     }
 
+    /// <summary>
+    /// 状态索引转换为id
+    /// </summary>
     public int StateIndexToIdentifier(int stateIndex)
     {
         return mIsPrepared ? mStates[stateIndex].identifier : mConfStateList[stateIndex].identifier;
     }
 
-    public int TransitionToIndex(int stateIndex, int dstStateIndex)
+    /// <summary>
+    /// 获得过渡索引
+    /// </summary>
+    public int GetTransitionIndex(int stateIndex, int dstStateIndex)
     {
         StateInfo state = mIsPrepared ? mStates[stateIndex] : mConfStateList[stateIndex];
 
         int transitionIndex = state.transitionIndex;
         if (transitionIndex == -1) return -1;
 
-        TransitionInfo transition = mIsPrepared ? mTransitions[transitionIndex] : mConfTransitionList[transitionIndex];
+        TransitionInfo transition = mIsPrepared
+            ? mTransitions[transitionIndex] : mConfTransitionList[transitionIndex];
 
         while (true)
         {
             if (transition.dstStateIndex == dstStateIndex)
-            {
                 return transitionIndex;
-            }
 
             if (transition.next == 0)
-            {
                 break;
-            }
 
             transitionIndex = transition.next;
             transition = mIsPrepared ? mTransitions[transitionIndex] : mConfTransitionList[transitionIndex];
@@ -203,11 +245,9 @@ public class FastFsm
         return -1;
     }
 
-    public void Start(int startStateIndex)
-    {
-        StartByIndex(StateIdentifierToIndex(startStateIndex));
-    }
-
+    /// <summary>
+    /// 通过状态机索引开始状态机
+    /// </summary>
     public void StartByIndex(int startStateIndex)
     {
         if (!mIsPrepared)
@@ -218,6 +258,9 @@ public class FastFsm
         mStates[CurrentStateIndex].onEnter?.Invoke(-1, null);
     }
 
+    /// <summary>
+    /// 更新状态回调
+    /// </summary>
     public void UpdateStateCallback(int stateIndex
         , StateEnter onEnter
         , StateUpdate onUpdate
@@ -262,16 +305,26 @@ public class FastFsm
         mConfStateList[stateIndex] = stateInfo;
     }
 
-    public void UpdateTransitionCondition(int transitionIndex, StateTransition condition)
+    /// <summary>
+    /// 更新过渡条件
+    /// </summary>
+    public void UpdateTransitionCondition(int transitionIndex, StateTransition condition, bool autoDetect)
     {
         if (mIsPrepared)
             throw new System.NotSupportedException();
 
         TransitionInfo transitionInfo = mConfTransitionList[transitionIndex];
+
+        UnityEngine.Debug.Log("transitionInfo.dstStateIndex: " + transitionInfo.dstStateIndex);
+
         transitionInfo.condition = condition;
+        transitionInfo.isAutoDetect = autoDetect;
         mConfTransitionList[transitionIndex] = transitionInfo;
     }
 
+    /// <summary>
+    /// 添加状态
+    /// </summary>
     public void AddState(int identifier, StateEnter onEnter = null, StateUpdate onUpdate = null, StateExit onExit = null)
     {
         if (mIsPrepared)
@@ -287,19 +340,22 @@ public class FastFsm
         });
     }
 
+    /// <summary>
+    /// 添加过渡
+    /// </summary>
     public void AddTransition(int stateIndex, int dstStateIndex, StateTransition condition)
     {
         if (mIsPrepared)
             throw new System.NotSupportedException("Does not support in prepared edit fsm!");
 
-        int transitionIndex = TransitionToIndex(stateIndex, dstStateIndex);
+        int transitionIndex = GetTransitionIndex(stateIndex, dstStateIndex);
         if (transitionIndex > -1)
             throw new Exception("Has same state transition!");
 
         StateInfo state = mConfStateList[stateIndex];
         if (state.transitionIndex > -1)
         {
-            TransitionInfo transition = mTransitions[state.transitionIndex];
+            TransitionInfo transition = mConfTransitionList[state.transitionIndex];
 
             while (true)
             {
@@ -317,7 +373,7 @@ public class FastFsm
                     break;
                 }
 
-                transition = mTransitions[transition.next];
+                transition = mConfTransitionList[transition.next];
             }
         }
         else
@@ -336,11 +392,17 @@ public class FastFsm
         mConfStateList[stateIndex] = state;
     }
 
+    /// <summary>
+    /// 执行过渡
+    /// </summary>
     public void Transition(int dstStateIdentifier, object arg = null, bool immediateUpdate = true)
     {
         TransitionByStateIndex(StateIdentifierToIndex(dstStateIdentifier), arg, immediateUpdate);
     }
 
+    /// <summary>
+    /// 通过状态索引执行过渡
+    /// </summary>
     public void TransitionByStateIndex(int dstStateIndex, object arg = null, bool immediateUpdate = true)
     {
         if (!mIsPrepared)
@@ -354,6 +416,9 @@ public class FastFsm
         }, immediateUpdate);
     }
 
+    /// <summary>
+    /// 通过缓存的内部索引执行过渡
+    /// </summary>
     public void TransitionByCacheIndex(int transitionIndex, object arg = null, bool immediateUpdate = true)
     {
         if (!mIsPrepared)
@@ -366,9 +431,12 @@ public class FastFsm
         }, immediateUpdate);
     }
 
+    /// <summary>
+    /// 执行更新
+    /// </summary>
     public void Update(float deltaTime)
     {
-        if(mNestedLock)
+        if (mNestedLock)
             throw new System.NotSupportedException("Does not support update nested update fsm!");
 
         mNestedLock = true;
@@ -376,12 +444,12 @@ public class FastFsm
         if (mTransitionQuest.HasValue)
         {
             var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = mTransitionQuest.Value;
-
+            UnityEngine.Debug.Log("[TransitionQuest]transitionCacheIndex: " + transitionCacheIndex + " transitionDstStateIndex: " + transitionDstStateIndex);
             int transitionIndex = -1;
             if (transitionCacheIndex > -1)
                 transitionIndex = transitionCacheIndex;
             else
-                transitionIndex = TransitionToIndex(CurrentStateIndex, transitionDstStateIndex);
+                transitionIndex = GetTransitionIndex(CurrentStateIndex, transitionDstStateIndex);
 
             if (CanTransition(transitionIndex, transitionArg))
             {
@@ -397,16 +465,45 @@ public class FastFsm
 
             mTransitionQuest = null;
         }
+        else
+        {
+            ref StateInfo state = ref mStates[CurrentStateIndex];
+
+            int transitionIndex = state.transitionIndex;
+            if (transitionIndex > -1)
+            {
+                ref TransitionInfo transition = ref mTransitions[transitionIndex];
+
+                while (true)
+                {
+                    if (transition.isAutoDetect)
+                    {
+                        UnityEngine.Debug.Log("[AutoDetect]transitionIndex: " + transitionIndex + ",transition.dstStateIndex: " + transition.dstStateIndex);
+                        TransitionInternal(new FastFsmTransitionOperate()
+                        {
+                            transitionDstStateIndex = transition.dstStateIndex,
+                            transitionCacheIndex = -1,
+                            transitionArg = null
+                        }, false);
+                    }
+
+                    if (transition.next > 0)
+                        transition = mTransitions[transition.next];
+                    else
+                        break;
+                }
+            }
+        }
 
         ref StateInfo currentState = ref mStates[CurrentStateIndex];
         currentState.onUpdate?.Invoke();
 
         if (currentState.onTimeEnd != null)
         {
-            if (currentState.timer < kFloatEps && currentState.timer > kTimerInvalid + kFloatEps)
+            if (float.IsNaN(currentState.timer) || currentState.timer < 0f)
             {
                 currentState.onTimeEnd();
-                currentState.timer = kTimerInvalid;
+                currentState.timer = float.NaN;
             }
             else
             {
@@ -418,6 +515,13 @@ public class FastFsm
 
         while (mNestedTransitionQueue.TryDequeue(out FastFsmTransitionOperate operate))
         {
+            var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = operate;
+
+            UnityEngine.Debug.Log(
+                "[NestedTransition]transitionCacheIndex: " + transitionCacheIndex
+                + ",transitionDstStateIndex: " + transitionDstStateIndex
+                + ",mNestedTransitionQueue.Count: " + mNestedTransitionQueue.Count);
+
             mTransitionQuest = operate;
             Update(0f);
         }
