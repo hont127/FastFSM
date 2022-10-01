@@ -35,6 +35,12 @@ public class FastFsm
         public bool isAutoDetect;
 
         public bool Valid => condition != null;
+
+
+        public override string ToString()
+        {
+            return $"next:{next}, dstStateIndex:{dstStateIndex}, condition:{condition}, isAutoDetect:{isAutoDetect}";
+        }
     }
 
     private bool mNestedLock;
@@ -91,10 +97,10 @@ public class FastFsm
             int stateIndex = StateIdentifierToIndex(stateIdentifier);
             int dstStateIndex = StateIdentifierToIndex(dstStateIdentifier);
 
-            UnityEngine.Debug.Log("dstStateIdentifier: " + dstStateIdentifier + " dstStateIndex: " + dstStateIndex);
-
             if (!HasTransition(stateIndex, dstStateIndex))
+            {
                 AddTransition(stateIndex, dstStateIndex, null);
+            }
 
             FastFsmTransitionSetter result = new FastFsmTransitionSetter();
             result.Initialize(this, stateIndex, dstStateIndex);
@@ -315,8 +321,6 @@ public class FastFsm
 
         TransitionInfo transitionInfo = mConfTransitionList[transitionIndex];
 
-        UnityEngine.Debug.Log("transitionInfo.dstStateIndex: " + transitionInfo.dstStateIndex);
-
         transitionInfo.condition = condition;
         transitionInfo.isAutoDetect = autoDetect;
         mConfTransitionList[transitionIndex] = transitionInfo;
@@ -369,7 +373,7 @@ public class FastFsm
                     });
 
                     transition.next = mConfTransitionList.Count - 1;
-
+                    mConfTransitionList[state.transitionIndex] = transition;
                     break;
                 }
 
@@ -444,7 +448,7 @@ public class FastFsm
         if (mTransitionQuest.HasValue)
         {
             var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = mTransitionQuest.Value;
-            UnityEngine.Debug.Log("[TransitionQuest]transitionCacheIndex: " + transitionCacheIndex + " transitionDstStateIndex: " + transitionDstStateIndex);
+
             int transitionIndex = -1;
             if (transitionCacheIndex > -1)
                 transitionIndex = transitionCacheIndex;
@@ -478,7 +482,6 @@ public class FastFsm
                 {
                     if (transition.isAutoDetect)
                     {
-                        UnityEngine.Debug.Log("[AutoDetect]transitionIndex: " + transitionIndex + ",transition.dstStateIndex: " + transition.dstStateIndex);
                         TransitionInternal(new FastFsmTransitionOperate()
                         {
                             transitionDstStateIndex = transition.dstStateIndex,
@@ -488,7 +491,7 @@ public class FastFsm
                     }
 
                     if (transition.next > 0)
-                        transition = mTransitions[transition.next];
+                        transition = ref mTransitions[transition.next + 1];
                     else
                         break;
                 }
@@ -516,11 +519,6 @@ public class FastFsm
         while (mNestedTransitionQueue.TryDequeue(out FastFsmTransitionOperate operate))
         {
             var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = operate;
-
-            UnityEngine.Debug.Log(
-                "[NestedTransition]transitionCacheIndex: " + transitionCacheIndex
-                + ",transitionDstStateIndex: " + transitionDstStateIndex
-                + ",mNestedTransitionQueue.Count: " + mNestedTransitionQueue.Count);
 
             mTransitionQuest = operate;
             Update(0f);
