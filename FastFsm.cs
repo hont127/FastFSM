@@ -320,7 +320,6 @@ public class FastFsm
             throw new System.NotSupportedException();
 
         TransitionInfo transitionInfo = mConfTransitionList[transitionIndex];
-
         transitionInfo.condition = condition;
         transitionInfo.isAutoDetect = autoDetect;
         mConfTransitionList[transitionIndex] = transitionInfo;
@@ -357,6 +356,8 @@ public class FastFsm
             throw new Exception("Has same state transition!");
 
         StateInfo state = mConfStateList[stateIndex];
+
+        //若该状态没有过渡，则初始值为-1，若状态没有找到目标过渡，也返回-1。否则到过渡链表结束处，初始值为0
         if (state.transitionIndex > -1)
         {
             TransitionInfo transition = mConfTransitionList[state.transitionIndex];
@@ -374,6 +375,7 @@ public class FastFsm
 
                     transition.next = mConfTransitionList.Count - 1;
                     mConfTransitionList[state.transitionIndex] = transition;
+
                     break;
                 }
 
@@ -491,7 +493,7 @@ public class FastFsm
                     }
 
                     if (transition.next > 0)
-                        transition = ref mTransitions[transition.next + 1];
+                        transition = ref mTransitions[transition.next];
                     else
                         break;
                 }
