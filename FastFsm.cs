@@ -98,9 +98,7 @@ public class FastFsm
             int dstStateIndex = StateIdentifierToIndex(dstStateIdentifier);
 
             if (!HasTransition(stateIndex, dstStateIndex))
-            {
                 AddTransition(stateIndex, dstStateIndex, null);
-            }
 
             FastFsmTransitionSetter result = new FastFsmTransitionSetter();
             result.Initialize(this, stateIndex, dstStateIndex);
@@ -111,7 +109,7 @@ public class FastFsm
 
     public FastFsm()
     {
-        AllowDirectTransition = true;
+        AllowDirectTransition = false;
 
         mConfStateList = new List<StateInfo>(32);
         mConfTransitionList = new List<TransitionInfo>(32);
@@ -126,6 +124,7 @@ public class FastFsm
     {
         mStates = mConfStateList.ToArray();
         mTransitions = mConfTransitionList.ToArray();
+
         mIsPrepared = true;
     }
 
@@ -173,10 +172,10 @@ public class FastFsm
     }
 
     /// <summary>
-    /// 是否存在某个传递
+    /// 是否存在某个过渡
     /// </summary>
-    /// <param name="stateIndex">传递初始状态索引</param>
-    /// <param name="dstStateIndex">传递目标状态索引</param>
+    /// <param name="stateIndex">过渡初始状态索引</param>
+    /// <param name="dstStateIndex">过渡目标状态索引</param>
     public bool HasTransition(int stateIndex, int dstStateIndex)
     {
         return GetTransitionIndex(stateIndex, dstStateIndex) != -1;
@@ -320,6 +319,7 @@ public class FastFsm
             throw new System.NotSupportedException();
 
         TransitionInfo transitionInfo = mConfTransitionList[transitionIndex];
+
         transitionInfo.condition = condition;
         transitionInfo.isAutoDetect = autoDetect;
         mConfTransitionList[transitionIndex] = transitionInfo;
@@ -360,6 +360,7 @@ public class FastFsm
         //若该状态没有过渡，则初始值为-1，若状态没有找到目标过渡，也返回-1。否则到过渡链表结束处，初始值为0
         if (state.transitionIndex > -1)
         {
+            transitionIndex = state.transitionIndex;
             TransitionInfo transition = mConfTransitionList[state.transitionIndex];
 
             while (true)
@@ -374,12 +375,13 @@ public class FastFsm
                     });
 
                     transition.next = mConfTransitionList.Count - 1;
-                    mConfTransitionList[state.transitionIndex] = transition;
+                    mConfTransitionList[transitionIndex] = transition;
 
                     break;
                 }
 
-                transition = mConfTransitionList[transition.next];
+                transitionIndex = transition.next;
+                transition = mConfTransitionList[transitionIndex];
             }
         }
         else
@@ -505,14 +507,17 @@ public class FastFsm
 
         if (currentState.onTimeEnd != null)
         {
-            if (float.IsNaN(currentState.timer) || currentState.timer < 0f)
+            if (!float.IsNaN(currentState.timer))
             {
-                currentState.onTimeEnd();
-                currentState.timer = float.NaN;
-            }
-            else
-            {
-                currentState.timer -= deltaTime;
+                if (currentState.timer < 0f)
+                {
+                    currentState.onTimeEnd();
+                    currentState.timer = float.NaN;
+                }
+                else
+                {
+                    currentState.timer -= deltaTime;
+                }
             }
         }
 
@@ -521,7 +526,6 @@ public class FastFsm
         while (mNestedTransitionQueue.TryDequeue(out FastFsmTransitionOperate operate))
         {
             var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = operate;
-
             mTransitionQuest = operate;
             Update(0f);
         }
