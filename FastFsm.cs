@@ -61,6 +61,11 @@ public class FastFsm
     public bool AllowDirectTransition { get; set; }
 
     /// <summary>
+    /// 当前状态Identiier
+    /// </summary>
+    public int CurrentStateIdentifier => StateIndexToIdentifier(CurrentStateIndex);
+
+    /// <summary>
     /// 当前状态索引值
     /// </summary>
     public int CurrentStateIndex { get; private set; }
