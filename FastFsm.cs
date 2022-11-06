@@ -7,6 +7,8 @@ using System.Collections.Generic;
 /// </summary>
 public class FastFsm
 {
+    public const int kInvalid = -1;
+
     public delegate void StateEnter(int lastState, object arg);
     public delegate void StateUpdate();
     public delegate void StateExit(int newState);
@@ -36,7 +38,6 @@ public class FastFsm
 
         public bool Valid => condition != null;
 
-
         public override string ToString()
         {
             return $"next:{next}, dstStateIndex:{dstStateIndex}, condition:{condition}, isAutoDetect:{isAutoDetect}";
@@ -59,6 +60,11 @@ public class FastFsm
     /// 是否为直接传递,若为true将忽略传递条件
     /// </summary>
     public bool AllowDirectTransition { get; set; }
+
+    /// <summary>
+    /// 当前状态机是否开启
+    /// </summary>
+    public bool IsStart => CurrentStateIndex != kInvalid;
 
     /// <summary>
     /// 当前状态Identiier
@@ -115,6 +121,8 @@ public class FastFsm
     public FastFsm()
     {
         AllowDirectTransition = false;
+
+        CurrentStateIndex = kInvalid;
 
         mConfStateList = new List<StateInfo>(32);
         mConfTransitionList = new List<TransitionInfo>(32);
@@ -449,6 +457,9 @@ public class FastFsm
     /// </summary>
     public void Update(float deltaTime)
     {
+        if (!IsStart)
+            throw new System.Exception("Please First Invoke 'Start' or 'StartByIndex' Method!");
+
         if (mNestedLock)
             throw new System.NotSupportedException("Does not support update nested update fsm!");
 
@@ -534,6 +545,14 @@ public class FastFsm
             mTransitionQuest = operate;
             Update(0f);
         }
+    }
+
+    public void ResetFsm()
+    {
+        mNestedLock = false;
+        mNestedTransitionQueue.Clear();
+        mTransitionQuest = null;
+        CurrentStateIndex = kInvalid;
     }
 
     private void TransitionInternal(FastFsmTransitionOperate operate, bool immediateUpdate)
