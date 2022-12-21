@@ -67,7 +67,7 @@ public class FastFsm
     public bool IsStart => CurrentStateIndex != kInvalid;
 
     /// <summary>
-    /// 当前状态Identiier
+    /// 当前状态Identifier
     /// </summary>
     public int CurrentStateIdentifier => StateIndexToIdentifier(CurrentStateIndex);
 
