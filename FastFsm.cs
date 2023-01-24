@@ -8,6 +8,7 @@ using System.Collections.Generic;
 public class FastFsm
 {
     public const int kInvalid = -1;
+    private const float kEps = 0.00001f;
 
     public delegate void StateEnter(int lastState, object arg);
     public delegate void StateUpdate();
@@ -519,7 +520,9 @@ public class FastFsm
         }
 
         ref StateInfo currentState = ref mStates[CurrentStateIndex];
-        currentState.onUpdate?.Invoke();
+        if (deltaTime > kEps)
+            currentState.onUpdate?.Invoke();
+        //If step frame calling onUpdate, or iterate no calling that code.
 
         if (currentState.onTimeEnd != null)
         {
