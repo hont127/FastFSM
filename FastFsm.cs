@@ -522,7 +522,7 @@ public class FastFsm
         ref StateInfo currentState = ref mStates[CurrentStateIndex];
         if (deltaTime > kEps)
             currentState.onUpdate?.Invoke();
-        //If step frame calling onUpdate, or iterate no calling that code.
+        //If step frame will be calling onUpdate, prevent iterate calling that code.
 
         if (currentState.onTimeEnd != null)
         {
@@ -542,9 +542,8 @@ public class FastFsm
 
         mNestedLock = false;
 
-        while (mNestedTransitionQueue.TryDequeue(out FastFsmTransitionOperate operate))
+        while (mNestedTransitionQueue.TryDequeue(out var operate))
         {
-            var (transitionCacheIndex, transitionDstStateIndex, transitionArg) = operate;
             mTransitionQuest = operate;
             Update(0f);
         }
